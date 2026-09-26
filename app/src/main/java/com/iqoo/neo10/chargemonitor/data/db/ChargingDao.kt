@@ -33,6 +33,9 @@ interface ChargingDao {
     @Query("SELECT * FROM charging_records ORDER BY startTime DESC")
     fun getAllRecordsFlow(): Flow<List<ChargingRecord>>
 
+    @Query("SELECT * FROM charging_records ORDER BY startTime DESC")
+    suspend fun getAllRecordsOnce(): List<ChargingRecord>
+
     @Query("SELECT * FROM charging_records WHERE id = :id")
     suspend fun getRecordById(id: Long): ChargingRecord?
 

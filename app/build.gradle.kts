@@ -12,8 +12,8 @@ android {
         applicationId = "com.iqoo.neo10.chargemonitor"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "0.1.4"
+        versionCode = 6
+        versionName = "0.2.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -52,6 +52,9 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { viewBinding = true }
+
+    // For BottomNavigationView and Material3 components
+    // (already covered by material dependency above)
 }
 
 dependencies {
@@ -60,6 +63,9 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+
+    // Fragment
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
 
     // Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")

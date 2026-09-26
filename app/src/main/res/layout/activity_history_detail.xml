@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/bg_main"
     android:fillViewport="true">
 
     <LinearLayout
@@ -37,7 +37,7 @@
             android:layout_marginTop="14dp"
             android:backgroundTint="@color/accent"
             android:text="@string/btn_export_csv"
-            android:textColor="#0F0F12" />
+            android:textColor="@color/bg_main" />
 
         <com.github.mikephil.charting.charts.LineChart
             android:id="@+id/chartCurrent"

@@ -17,6 +17,8 @@ class ChargingRepository(private val dao: ChargingDao) {
 
     fun getAllRecordsFlow(): Flow<List<ChargingRecord>> = dao.getAllRecordsFlow()
 
+    suspend fun getAllRecordsOnce(): List<ChargingRecord> = dao.getAllRecordsOnce()
+
     suspend fun getRecordById(id: Long): ChargingRecord? = dao.getRecordById(id)
 
     suspend fun insertRecord(record: ChargingRecord): Long = dao.insertRecord(record)

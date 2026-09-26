@@ -10,78 +10,108 @@ import android.os.Build
 import android.os.Bundle
 import android.os.BatteryManager
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.commit
+import com.iqoo.neo10.chargemonitor.R
 import com.iqoo.neo10.chargemonitor.databinding.ActivityMainBinding
 import com.iqoo.neo10.chargemonitor.service.ChargingMonitorService
 import com.iqoo.neo10.chargemonitor.ui.chart.ChartActivity
-import com.iqoo.neo10.chargemonitor.ui.history.HistoryActivity
-import com.iqoo.neo10.chargemonitor.ui.log.LogActivity
-import com.iqoo.neo10.chargemonitor.util.AppLogger
-import com.iqoo.neo10.chargemonitor.util.FormatUtil
+import com.iqoo.neo10.chargemonitor.ui.history.HistoryFragment
+import com.iqoo.neo10.chargemonitor.ui.settings.SettingsActivity
+import com.iqoo.neo10.chargemonitor.util.PrefUtil
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val vm: MainViewModel by viewModels()
 
-    /** 动态接收充电插拔事件（Activity 位于前台时可启动前台服务） */
     private val powerReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
-                Intent.ACTION_POWER_CONNECTED -> {
-                    Log.i(TAG, "动态接收: 电源已连接")
-                    startMonitorService()
-                }
-                Intent.ACTION_POWER_DISCONNECTED -> {
-                    Log.i(TAG, "动态接收: 电源已断开")
-                    stopMonitorService()
-                }
+                Intent.ACTION_POWER_CONNECTED -> startMonitorService()
+                Intent.ACTION_POWER_DISCONNECTED -> stopMonitorService()
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 应用保存的主题模式（在 super.onCreate 之前）
+        applyThemeMode()
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        setSupportActionBar(binding.toolbar)
+
+        setupBottomNav(savedInstanceState)
         requestNotificationPermission()
+        observeViewModel()
+    }
 
-        vm.snapshot.observe(this) { s ->
-            binding.tvCapacity.text = "${s.capacity}%"
-            binding.tvVoltage.text = "${FormatUtil.formatFloat2(s.voltage)} V"
-            binding.tvCurrent.text = "${FormatUtil.formatFloat2(s.current)} A"
-            binding.tvPower.text = "${FormatUtil.formatFloat1(s.power)} W"
-            binding.tvTemp.text = "${FormatUtil.formatFloat1(s.temperature)} °C"
-            binding.tvSource.text = s.source
-            binding.tvStatus.text = s.status
-            // 每秒轮询兜底：若系统判定正在充电但尚未记录，则启动服务
-            ensureMonitorIfCharging()
-        }
+    private fun applyThemeMode() {
+        val dark = PrefUtil.isDarkTheme(this)
+        AppCompatDelegate.setDefaultNightMode(
+            if (dark) AppCompatDelegate.MODE_NIGHT_YES
+            else AppCompatDelegate.MODE_NIGHT_NO
+        )
+    }
 
-        vm.activeRecord.observe(this) { r ->
-            val charging = isCharging()
-            binding.tvSessionStatus.text = when {
-                r != null -> "正在记录充电中…"
-                charging -> "已连接充电器（准备记录）"
-                else -> "未在充电"
+    private fun setupBottomNav(savedInstanceState: Bundle?) {
+        binding.bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    supportFragmentManager.commit {
+                        replace(R.id.fragmentContainer, HomeFragment())
+                    }
+                    true
+                }
+                R.id.nav_history -> {
+                    supportFragmentManager.commit {
+                        replace(R.id.fragmentContainer, HistoryFragment())
+                    }
+                    true
+                }
+                else -> false
             }
         }
+        if (savedInstanceState == null) {
+            binding.bottomNav.selectedItemId = R.id.nav_home
+        }
+    }
 
-        binding.btnChart.setOnClickListener {
-            startActivity(Intent(this, ChartActivity::class.java))
+    private fun observeViewModel() {
+        vm.snapshot.observe(this) { s ->
+            (supportFragmentManager.findFragmentById(R.id.fragmentContainer) as? HomeFragment)?.updateData(s)
+            ensureMonitorIfCharging()
         }
-        binding.btnHistory.setOnClickListener {
-            startActivity(Intent(this, HistoryActivity::class.java))
+        vm.activeRecord.observe(this) { r ->
+            (supportFragmentManager.findFragmentById(R.id.fragmentContainer) as? HomeFragment)?.updateSession(r)
         }
-        binding.btnLog.setOnClickListener {
-            startActivity(Intent(this, LogActivity::class.java))
-        }
+    }
 
-        AppLogger.i(TAG, "MainActivity 创建完成，版本 ${packageManager.getPackageInfo(packageName, 0).versionName}")
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_chart -> {
+                startActivity(Intent(this, ChartActivity::class.java))
+                true
+            }
+            R.id.action_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     override fun onResume() {
@@ -97,10 +127,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        try {
-            unregisterReceiver(powerReceiver)
-        } catch (_: Exception) {
-        }
+        try { unregisterReceiver(powerReceiver) } catch (_: Exception) {}
         vm.stopTicking()
     }
 
@@ -109,7 +136,6 @@ class MainActivity : AppCompatActivity() {
         return bm.isCharging
     }
 
-    /** 若正在充电且无活跃记录，则启动监测服务（前台调用，不受后台启动限制） */
     private fun ensureMonitorIfCharging() {
         if (isCharging() && vm.activeRecord.value == null) {
             startMonitorService()
@@ -124,7 +150,6 @@ class MainActivity : AppCompatActivity() {
             } else {
                 startService(svc)
             }
-            Log.i(TAG, "已请求启动充电监测服务")
         } catch (e: Exception) {
             Log.e(TAG, "启动服务失败", e)
         }

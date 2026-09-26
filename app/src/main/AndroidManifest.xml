@@ -31,15 +31,11 @@
             android:exported="false" />
 
         <activity
-            android:name=".ui.history.HistoryActivity"
-            android:exported="false" />
-
-        <activity
             android:name=".ui.historydetail.HistoryDetailActivity"
             android:exported="false" />
 
         <activity
-            android:name=".ui.log.LogActivity"
+            android:name=".ui.settings.SettingsActivity"
             android:exported="false" />
 
         <service
