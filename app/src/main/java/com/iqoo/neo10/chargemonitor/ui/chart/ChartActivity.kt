@@ -11,6 +11,7 @@ import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.iqoo.neo10.chargemonitor.data.db.BatterySample
 import com.iqoo.neo10.chargemonitor.databinding.ActivityChartBinding
+import com.iqoo.neo10.chargemonitor.util.TimeAxisFormatter
 
 class ChartActivity : AppCompatActivity() {
 
@@ -22,11 +23,10 @@ class ChartActivity : AppCompatActivity() {
         binding = ActivityChartBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setupChart(binding.chartCurrent, "电流 (A)", Color.parseColor("#4FC3F7"))
-        setupChart(binding.chartPower, "功率 (W)", Color.parseColor("#FFB74D"))
-        setupChart(binding.chartTemp, "温度 (°C)", Color.parseColor("#EF5350"))
+        setupChart(binding.chartCurrent, "电流 (A)", Color.parseColor("#0A84FF"))
+        setupChart(binding.chartPower, "功率 (W)", Color.parseColor("#FF9F0A"))
+        setupChart(binding.chartTemp, "温度 (°C)", Color.parseColor("#FF453A"))
 
-        // 温度阈值线
         val tempLimit = LimitLine(42f, "高温阈值 42°C").apply {
             lineColor = Color.RED
             lineWidth = 1.5f
@@ -34,9 +34,15 @@ class ChartActivity : AppCompatActivity() {
         }
         binding.chartTemp.axisLeft.addLimitLine(tempLimit)
 
-        vm.samples.observe(this) { samples ->
-            updateCharts(samples)
+        vm.activeRecord.observe(this) { record ->
+            val start = record?.startTime ?: System.currentTimeMillis()
+            val formatter = TimeAxisFormatter(start)
+            binding.chartCurrent.xAxis.valueFormatter = formatter
+            binding.chartPower.xAxis.valueFormatter = formatter
+            binding.chartTemp.xAxis.valueFormatter = formatter
         }
+
+        vm.samples.observe(this) { samples -> updateCharts(samples) }
     }
 
     private fun setupChart(chart: LineChart, label: String, color: Int) {
@@ -48,18 +54,19 @@ class ChartActivity : AppCompatActivity() {
             legend.isEnabled = false
             axisRight.isEnabled = false
             xAxis.setDrawGridLines(false)
-            xAxis.textColor = Color.LTGRAY
-            axisLeft.textColor = Color.LTGRAY
+            xAxis.textColor = Color.GRAY
+            xAxis.granularity = 1f // 每 1 分钟一个数据点
+            axisLeft.textColor = Color.GRAY
             axisLeft.setDrawGridLines(true)
             axisLeft.gridColor = Color.parseColor("#333333")
-            setBackgroundColor(Color.parseColor("#121212"))
+            setBackgroundColor(Color.TRANSPARENT)
             setNoDataText("暂无数据，充电时将自动绘制")
             setNoDataTextColor(Color.GRAY)
         }
         val ds = LineDataSet(emptyList(), label).apply {
             this.color = color
             setCircleColor(color)
-            circleRadius = 1.5f
+            circleRadius = 2.5f
             lineWidth = 1.5f
             setDrawValues(false)
             setDrawFilled(false)
@@ -69,9 +76,21 @@ class ChartActivity : AppCompatActivity() {
     }
 
     private fun updateCharts(samples: List<BatterySample>) {
-        updateChart(binding.chartCurrent, samples.map { Entry(it.elapsedSec.toFloat(), it.current) })
-        updateChart(binding.chartPower, samples.map { Entry(it.elapsedSec.toFloat(), it.power) })
-        updateChart(binding.chartTemp, samples.map { Entry(it.elapsedSec.toFloat(), it.temperature) })
+        // X 轴单位：分钟（距充电开始）
+        val currentEntries = samples.map { Entry(it.elapsedSec / 60f, it.current) }
+        val powerEntries = samples.map { Entry(it.elapsedSec / 60f, it.power) }
+        val tempEntries = samples.map { Entry(it.elapsedSec / 60f, it.temperature) }
+
+        updateChart(binding.chartCurrent, currentEntries)
+        updateChart(binding.chartPower, powerEntries)
+        updateChart(binding.chartTemp, tempEntries)
+
+        // 按 15 分钟间隔设置坐标轴标签数
+        val minutes = if (samples.isNotEmpty()) samples.last().elapsedSec / 60f else 60f
+        val labelCount = (minutes / 15f).toInt().coerceIn(2, 12) + 1
+        binding.chartCurrent.xAxis.setLabelCount(labelCount, true)
+        binding.chartPower.xAxis.setLabelCount(labelCount, true)
+        binding.chartTemp.xAxis.setLabelCount(labelCount, true)
     }
 
     private fun updateChart(chart: LineChart, entries: List<Entry>) {

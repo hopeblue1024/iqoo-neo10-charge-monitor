@@ -160,7 +160,7 @@ class ChargingMonitorService : Service() {
     }
 
     companion object {
-        private const val POLL_INTERVAL_MS = 1000L
+        private const val POLL_INTERVAL_MS = 60_000L
         const val ACTION_STOP = "com.iqoo.neo10.chargemonitor.ACTION_STOP"
     }
 }

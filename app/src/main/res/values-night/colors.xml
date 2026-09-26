@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 黑色主题 -->
+    <!-- 深色模式 -->
     <color name="bg_main">#0F0F12</color>
-    <color name="bg_card">#1B1B20</color>
-    <color name="bg_card_elevated">#252528</color>
-    <color name="divider">#2A2A30</color>
-    <color name="text_primary">#F5F5F5</color>
-    <color name="text_secondary">#A0A0A8</color>
-    <color name="accent">#3DDC84</color>
-    <color name="power">#FFB74D</color>
-    <color name="temp_high">#EF5350</color>
-    <color name="voltage">#4FC3F7</color>
+    <color name="bg_card">#1C1C1E</color>
+    <color name="bg_card_elevated">#2C2C2E</color>
+    <color name="divider">#38383A</color>
+    <color name="text_primary">#F5F5F7</color>
+    <color name="text_secondary">#98989D</color>
+    <color name="accent">#30D158</color>
+    <color name="power">#FF9F0A</color>
+    <color name="temp_high">#FF453A</color>
+    <color name="voltage">#0A84FF</color>
     <color name="nav_bg">#0F0F12</color>
-    <color name="nav_item_active">#3DDC84</color>
-    <color name="nav_item_inactive">#A0A0A8</color>
+    <color name="nav_item_active">#30D158</color>
+    <color name="nav_item_inactive">#98989D</color>
     <color name="toolbar_bg">#0F0F12</color>
-    <color name="switch_track">#3A3A3E</color>
+    <color name="switch_track">#3A3A3C</color>
 </resources>

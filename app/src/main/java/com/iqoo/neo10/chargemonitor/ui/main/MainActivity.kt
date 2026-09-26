@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setSupportActionBar(binding.toolbar)
+        binding.toolbar.subtitle = "iQOO Neo10 · 双电芯监测"
 
         setupBottomNav(savedInstanceState)
         requestNotificationPermission()

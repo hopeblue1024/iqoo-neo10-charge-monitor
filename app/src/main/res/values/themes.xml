@@ -7,5 +7,11 @@
         <item name="colorSurface">@color/bg_card</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="toolbarStyle">@style/ChargeMonitorToolbar</item>
+    </style>
+
+    <style name="ChargeMonitorToolbar" parent="Widget.Material3.Toolbar">
+        <item name="titleTextColor">@color/text_primary</item>
+        <item name="subtitleTextColor">@color/text_secondary</item>
     </style>
 </resources>

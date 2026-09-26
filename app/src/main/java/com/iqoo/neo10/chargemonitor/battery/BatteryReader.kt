@@ -291,15 +291,23 @@ object BatteryReader {
     fun readStatus(): String {
         val dir = batteryDir()
         val sys = readFile("$dir/status")
-        if (!sys.isNullOrBlank()) return sys
-        val intent = batteryIntent() ?: return "Unknown"
+        if (!sys.isNullOrBlank()) return mapStatus(sys)
+        val intent = batteryIntent() ?: return "未知"
         return when (intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)) {
-            BatteryManager.BATTERY_STATUS_CHARGING -> "Charging"
-            BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharging"
-            BatteryManager.BATTERY_STATUS_FULL -> "Full"
-            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "Not charging"
-            else -> "Unknown"
+            BatteryManager.BATTERY_STATUS_CHARGING -> "充电中"
+            BatteryManager.BATTERY_STATUS_DISCHARGING -> "放电中"
+            BatteryManager.BATTERY_STATUS_FULL -> "已充满"
+            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "未充电"
+            else -> "未知"
         }
+    }
+
+    private fun mapStatus(raw: String): String = when (raw.trim().lowercase()) {
+        "charging" -> "充电中"
+        "discharging" -> "放电中"
+        "full" -> "已充满"
+        "not charging" -> "未充电"
+        else -> raw
     }
 
     fun readSource(): String {
@@ -309,20 +317,20 @@ object BatteryReader {
             if (online == 1) {
                 val name = File(dir).name.uppercase()
                 return when (name) {
-                    "AC", "MAINS" -> "AC"
+                    "AC", "MAINS" -> "交流电"
                     "USB" -> "USB"
-                    "WIRELESS" -> "Wireless"
-                    "DC" -> "DC"
+                    "WIRELESS" -> "无线充电"
+                    "DC" -> "直流"
                     else -> name
                 }
             }
         }
-        val intent = batteryIntent() ?: return "Unknown"
+        val intent = batteryIntent() ?: return "未连接"
         return when (intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)) {
-            BatteryManager.BATTERY_PLUGGED_AC -> "AC"
+            BatteryManager.BATTERY_PLUGGED_AC -> "交流电"
             BatteryManager.BATTERY_PLUGGED_USB -> "USB"
-            BatteryManager.BATTERY_PLUGGED_WIRELESS -> "Wireless"
-            else -> "Unknown"
+            BatteryManager.BATTERY_PLUGGED_WIRELESS -> "无线充电"
+            else -> "未连接"
         }
     }
 
@@ -332,8 +340,10 @@ object BatteryReader {
         val voltage = readVoltage()
         var current = readCurrent()
         val status = readStatus()
-        if (status == "Charging" && current < 0) current = -current
-        if (status == "Discharging" && current > 0) current = -current
+        val charging = status == "充电中" || status == "Charging"
+        val discharging = status == "放电中" || status == "Discharging"
+        if (charging && current < 0) current = -current
+        if (discharging && current > 0) current = -current
 
         val power = voltage * current
         val temperature = readTemperature()

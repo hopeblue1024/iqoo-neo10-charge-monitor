@@ -21,8 +21,8 @@
     <string name="menu_settings">设置</string>
 
     <!-- 设置页 -->
-    <string name="settings_theme">深色主题</string>
-    <string name="settings_theme_summary">关闭使用白色主题，开启使用黑色主题</string>
+    <string name="settings_theme">深色模式</string>
+    <string name="settings_theme_summary">关闭为浅色模式，开启为深色模式</string>
     <string name="settings_about">关于</string>
     <string name="settings_version">版本号</string>
     <string name="settings_export">导出数据</string>

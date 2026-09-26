@@ -28,6 +28,7 @@
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
         android:background="@drawable/bg_card"
+        android:elevation="2dp"
         android:orientation="horizontal"
         android:padding="20dp">
 
@@ -69,6 +70,7 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
         android:background="@drawable/bg_card"
+        android:elevation="2dp"
         android:clickable="true"
         android:focusable="true"
         android:orientation="horizontal"
@@ -121,6 +123,7 @@
         android:layout_marginHorizontal="16dp"
         android:layout_marginTop="8dp"
         android:background="@drawable/bg_card"
+        android:elevation="2dp"
         android:orientation="horizontal"
         android:padding="20dp">
 

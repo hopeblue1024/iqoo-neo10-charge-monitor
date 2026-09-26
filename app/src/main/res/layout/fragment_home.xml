@@ -18,6 +18,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:background="@drawable/bg_card"
+            android:elevation="2dp"
             android:gravity="center"
             android:orientation="vertical"
             android:padding="28dp">
@@ -62,6 +63,7 @@
                 android:layout_weight="1"
                 android:layout_marginEnd="6dp"
                 android:background="@drawable/bg_card"
+            android:elevation="2dp"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -89,6 +91,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="6dp"
                 android:background="@drawable/bg_card"
+            android:elevation="2dp"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -126,6 +129,7 @@
                 android:layout_marginEnd="6dp"
                 android:layout_marginBottom="12dp"
                 android:background="@drawable/bg_card"
+            android:elevation="2dp"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -154,6 +158,7 @@
                 android:layout_marginStart="6dp"
                 android:layout_marginBottom="12dp"
                 android:background="@drawable/bg_card"
+            android:elevation="2dp"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -181,6 +186,7 @@
                 android:layout_columnWeight="1"
                 android:layout_marginEnd="6dp"
                 android:background="@drawable/bg_card"
+            android:elevation="2dp"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -208,6 +214,7 @@
                 android:layout_columnWeight="1"
                 android:layout_marginStart="6dp"
                 android:background="@drawable/bg_card"
+            android:elevation="2dp"
                 android:orientation="vertical"
                 android:padding="16dp">
 
