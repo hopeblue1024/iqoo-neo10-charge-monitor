@@ -4,15 +4,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
-import android.util.Log
 import com.iqoo.neo10.chargemonitor.App
+import com.iqoo.neo10.chargemonitor.util.AppLogger
 import java.io.File
 
 /**
  * 从 /sys/class/power_supply 读取实时电池参数，并以 BatteryManager API 兜底。
  *
- * iQOO Neo10 为双电芯串联设计，不同机型/内核的电池节点名称不一致
- * （可能是 battery / battery0 / main / bq* 等），因此启动时动态探测。
+ * iQOO Neo10 为双电芯串联设计，不同机型/内核的节点名称不一致。
+ * 电流可能不在 battery 节点，而在 charger IC 节点（bq2598x / smb* / pca* 等），
+ * 因此读取电流时会扫描全部 power_supply 子目录。
  *
  * 优先级：sysfs（双电芯总电压/电流精度高） → BatteryManager API（兜底）
  */
@@ -21,14 +22,11 @@ object BatteryReader {
     private const val TAG = "BatteryReader"
     private const val BASE = "/sys/class/power_supply"
 
-    /** 探测到的电池节点目录，例如 /sys/class/power_supply/battery0 */
     private var batteryDir: String? = null
-
-    /** 已知的充电来源节点，按优先级探测 */
     private val supplyDirs = listOf("usb", "ac", "dc", "wireless", "mains")
-
-    /** 已探测到的充电来源节点，例如 /sys/class/power_supply/usb */
     private var sourceDirs: List<String> = emptyList()
+    /** 探测到的所有 power_supply 子目录完整路径 */
+    private var allDirs: List<String> = emptyList()
 
     private fun ctx(): Context? = try {
         App.instance
@@ -38,7 +36,8 @@ object BatteryReader {
 
     private fun readFile(path: String): String? {
         return try {
-            File(path).readText().trim()
+            val v = File(path).readText().trim()
+            if (v.isEmpty()) null else v
         } catch (e: Exception) {
             null
         }
@@ -50,40 +49,43 @@ object BatteryReader {
     private fun readLong(path: String, default: Long = 0L): Long =
         readFile(path)?.toLongOrNull() ?: default
 
-    /** 列出 /sys/class/power_supply 下的所有子目录名 */
     private fun listSupplyNames(): List<String> {
         return try {
             File(BASE).listFiles { f -> f.isDirectory }
                 ?.map { it.name }
                 ?: emptyList()
         } catch (e: Exception) {
+            AppLogger.w(TAG, "无法列出 $BASE: ${e.message}")
             emptyList()
         }
     }
 
-    /**
-     * 探测电池节点：优先尝试常见名称，否则遍历所有子目录，
-     * 找到第一个同时包含 capacity 与 voltage_now（或 temp）的目录。
-     */
+    /** 探测电池节点 */
     fun detectBatteryDir(): String? {
         val names = listSupplyNames()
-        if (names.isEmpty()) return null
+        allDirs = names.map { "$BASE/$it" }
+        if (names.isEmpty()) {
+            AppLogger.e(TAG, "$BASE 下没有任何子目录，无法探测电池节点")
+            return null
+        }
+        AppLogger.i(TAG, "power_supply 节点列表: ${names.joinToString(",")}")
 
-        // 常见名称优先
         val preferred = listOf("battery", "battery0", "battery1", "main", "bms")
         for (name in preferred) {
             if (name in names && isBatteryNode("$BASE/$name")) {
                 batteryDir = "$BASE/$name"
+                AppLogger.i(TAG, "探测到电池节点(优先): $batteryDir")
                 return batteryDir
             }
         }
-        // 兜底：遍历全部
         for (name in names) {
             if (isBatteryNode("$BASE/$name")) {
                 batteryDir = "$BASE/$name"
+                AppLogger.i(TAG, "探测到电池节点(遍历): $batteryDir")
                 return batteryDir
             }
         }
+        AppLogger.w(TAG, "未找到包含 capacity+voltage/temp 的电池节点")
         batteryDir = null
         return null
     }
@@ -95,9 +97,9 @@ object BatteryReader {
         return hasCapacity && (hasVoltage || hasTemp)
     }
 
-    /** 探测充电来源节点 */
     fun detectSourceDirs(): List<String> {
         val names = listSupplyNames()
+        allDirs = names.map { "$BASE/$it" }
         sourceDirs = supplyDirs.filter { it in names }.map { "$BASE/$it" }
         return sourceDirs
     }
@@ -107,30 +109,34 @@ object BatteryReader {
         return batteryDir ?: "$BASE/battery"
     }
 
-    /** 通过 BatteryManager 获取电池 Intent（粘性广播，无需注册接收器） */
     private fun batteryIntent(): Intent? {
-        val c = ctx() ?: return null
-        return c.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val c = ctx() ?: run {
+            AppLogger.e(TAG, "无法获取 Context，BatteryManager 兜底不可用")
+            return null
+        }
+        return try {
+            c.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "registerReceiver 失败: ${e.message}")
+            null
+        }
     }
 
-    /** 读取电量百分比 0-100 */
     fun readCapacity(): Int {
-        val sys = readInt("${batteryDir()}/capacity", -1)
+        val dir = batteryDir()
+        val sys = readInt("$dir/capacity", -1)
         if (sys in 0..100) return sys
-        // BatteryManager 兜底
+        AppLogger.w(TAG, "sysfs capacity 无效($sys)，使用 BatteryManager 兜底")
         val intent = batteryIntent() ?: return 0
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-        if (level < 0 || scale <= 0) return 0
+        if (level < 0 || scale <= 0) {
+            AppLogger.w(TAG, "BatteryManager level=$level scale=$scale 无效")
+            return 0
+        }
         return (level * 100 / scale).coerceIn(0, 100)
     }
 
-    /**
-     * 读取双电芯总电压，单位 V。
-     * sysfs 的 voltage_now 通常是双电芯串联总电压（约 7.4~8.8V），
-     * BatteryManager 的 EXTRA_VOLTAGE 多为单电芯电压（约 3.7~4.4V）。
-     * 优先 sysfs，兜底用 BatteryManager。
-     */
     fun readVoltage(): Float {
         val dir = batteryDir()
         val uv = readLong("$dir/voltage_now", -1L)
@@ -139,35 +145,72 @@ object BatteryReader {
                 .takeIf { it > 0 }
             ?: readLong("$dir/voltage_now_avg", -1L)
         if (uv > 0) return uv / 1_000_000f
-        // BatteryManager 兜底（单位 mV）
+        AppLogger.w(TAG, "sysfs 电压读取失败(节点=$dir)，使用 BatteryManager 兜底")
         val intent = batteryIntent() ?: return 0f
         val mv = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1)
-        return if (mv > 0) mv / 1000f else 0f
+        if (mv <= 0) {
+            AppLogger.w(TAG, "BatteryManager 电压无效: $mv mV")
+            return 0f
+        }
+        return mv / 1000f
     }
 
-    /** 读取总电流，单位 A。sysfs 单位 uA。 */
+    /**
+     * 读取总电流，单位 A。
+     * iQOO 双电芯机型的电流可能分布在多个 charger IC 节点，
+     * 扫描所有 power_supply 子目录的 current_now，取绝对值最大的非零值。
+     */
     fun readCurrent(): Float {
         val dir = batteryDir()
-        val ua = readLong("$dir/current_now", 0L)
+        // 先尝试电池节点自身
+        var ua = readLong("$dir/current_now", 0L)
             .takeIf { it != 0L }
             ?: readLong("$dir/current_avg", 0L)
+
+        if (ua == 0L) {
+            // 扫描所有节点找非零电流
+            if (allDirs.isEmpty()) detectSourceDirs()
+            var bestAbs = 0L
+            var bestVal = 0L
+            var bestNode = ""
+            for (d in allDirs) {
+                if (d == dir) continue
+                val v = readLong("$d/current_now", 0L)
+                    .takeIf { it != 0L }
+                    ?: readLong("$d/current_avg", 0L)
+                if (v != 0L && kotlin.math.abs(v) > bestAbs) {
+                    bestAbs = kotlin.math.abs(v)
+                    bestVal = v
+                    bestNode = d
+                }
+            }
+            if (bestVal != 0L) {
+                ua = bestVal
+                AppLogger.i(TAG, "从节点 $bestNode 读到电流 ${ua}uA")
+            } else {
+                AppLogger.w(TAG, "所有 power_supply 节点的 current_now 均为 0，无法获取电流")
+            }
+        }
         return ua / 1_000_000f
     }
 
-    /** 读取温度，单位 °C。sysfs 通常为 0.1°C。 */
     fun readTemperature(): Float {
         val dir = batteryDir()
         val raw = readInt("$dir/temp", Int.MIN_VALUE)
         if (raw != Int.MIN_VALUE) return raw / 10f
-        // BatteryManager 兜底（单位 0.1°C）
+        AppLogger.w(TAG, "sysfs 温度读取失败(节点=$dir)，使用 BatteryManager 兜底")
         val intent = batteryIntent() ?: return 0f
         val t = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
-        return if (t != Int.MIN_VALUE) t / 10f else 0f
+        if (t == Int.MIN_VALUE) {
+            AppLogger.w(TAG, "BatteryManager 温度无效")
+            return 0f
+        }
+        return t / 10f
     }
 
-    /** 读取状态：Charging / Discharging / Full / Not charging / Unknown */
     fun readStatus(): String {
-        val sys = readFile("${batteryDir()}/status")
+        val dir = batteryDir()
+        val sys = readFile("$dir/status")
         if (!sys.isNullOrBlank()) return sys
         val intent = batteryIntent() ?: return "Unknown"
         return when (intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)) {
@@ -179,9 +222,7 @@ object BatteryReader {
         }
     }
 
-    /** 读取充电来源：AC / USB / Wireless / DC / Unknown */
     fun readSource(): String {
-        // sysfs 探测各来源节点的 online
         if (sourceDirs.isEmpty()) detectSourceDirs()
         for (dir in sourceDirs) {
             val online = readInt("$dir/online", 0)
@@ -196,7 +237,6 @@ object BatteryReader {
                 }
             }
         }
-        // BatteryManager 兜底
         val intent = batteryIntent() ?: return "Unknown"
         return when (intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)) {
             BatteryManager.BATTERY_PLUGGED_AC -> "AC"
@@ -206,18 +246,14 @@ object BatteryReader {
         }
     }
 
-    /** 读取一次完整快照 */
     fun readSnapshot(): BatterySnapshot {
-        // 首次调用时确保节点已探测
         if (batteryDir == null) detectBatteryDir()
         if (sourceDirs.isEmpty()) detectSourceDirs()
 
         val voltage = readVoltage()
         var current = readCurrent()
         val status = readStatus()
-        // 若状态为 Charging 但电流为负，按设备约定取绝对值
         if (status == "Charging" && current < 0) current = -current
-        // 若状态为 Discharging 但电流为正，取负
         if (status == "Discharging" && current > 0) current = -current
 
         val power = voltage * current
@@ -248,11 +284,14 @@ object BatteryReader {
                 appendLine("current_now=${readFile("$dir/current_now")}")
                 appendLine("temp=${readFile("$dir/temp")}")
                 appendLine("status=${readFile("$dir/status")}")
-                appendLine("bm_status=${readStatus()}")
-                appendLine("bm_source=${readSource()}")
+                // 列出所有节点的 current_now
+                for (d in allDirs) {
+                    val cn = readFile("$d/current_now")
+                    if (cn != null) appendLine("  ${File(d).name}/current_now=$cn")
+                }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "debugDump failed", e)
+            AppLogger.e(TAG, "debugDump failed", e)
             ""
         }
     }

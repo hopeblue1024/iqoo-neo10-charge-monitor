@@ -18,6 +18,8 @@ import com.iqoo.neo10.chargemonitor.databinding.ActivityMainBinding
 import com.iqoo.neo10.chargemonitor.service.ChargingMonitorService
 import com.iqoo.neo10.chargemonitor.ui.chart.ChartActivity
 import com.iqoo.neo10.chargemonitor.ui.history.HistoryActivity
+import com.iqoo.neo10.chargemonitor.ui.log.LogActivity
+import com.iqoo.neo10.chargemonitor.util.AppLogger
 import com.iqoo.neo10.chargemonitor.util.FormatUtil
 
 class MainActivity : AppCompatActivity() {
@@ -75,6 +77,11 @@ class MainActivity : AppCompatActivity() {
         binding.btnHistory.setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
         }
+        binding.btnLog.setOnClickListener {
+            startActivity(Intent(this, LogActivity::class.java))
+        }
+
+        AppLogger.i(TAG, "MainActivity 创建完成，版本 ${packageManager.getPackageInfo(packageName, 0).versionName}")
     }
 
     override fun onResume() {

@@ -11,6 +11,7 @@
 
     <string name="btn_chart">实时曲线</string>
     <string name="btn_history">充电历史</string>
+    <string name="btn_log">运行日志</string>
     <string name="btn_export_csv">导出 CSV 日志</string>
 
     <string name="dual_cell_note">电压为双电芯串联总电压，功率 = 总电压 × 总电流</string>

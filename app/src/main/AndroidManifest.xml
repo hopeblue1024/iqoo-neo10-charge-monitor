@@ -38,6 +38,10 @@
             android:name=".ui.historydetail.HistoryDetailActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".ui.log.LogActivity"
+            android:exported="false" />
+
         <service
             android:name=".service.ChargingMonitorService"
             android:exported="false"
