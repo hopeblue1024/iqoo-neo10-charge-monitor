@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">iQOO 充电监测</string>
+
+    <string name="capacity">电量</string>
+    <string name="voltage">双电芯总电压</string>
+    <string name="current">总电流</string>
+    <string name="power">充电功率</string>
+    <string name="temperature">电池温度</string>
+    <string name="source">充电来源</string>
+    <string name="status">充电状态</string>
+
+    <string name="btn_chart">实时曲线</string>
+    <string name="btn_history">充电历史</string>
+    <string name="btn_export_csv">导出 CSV 日志</string>
+
+    <string name="dual_cell_note">电压为双电芯串联总电压，功率 = 总电压 × 总电流</string>
+</resources>
