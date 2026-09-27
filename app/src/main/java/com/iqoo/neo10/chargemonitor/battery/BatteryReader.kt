@@ -15,7 +15,8 @@ import java.io.File
  * 因此数据来源以 Android 公开 API BatteryManager 为主，sysfs 仅作辅助（在可读的机型上生效）。
  *
  * 电流：BatteryManager.getIntProperty(BATTERY_PROPERTY_CURRENT_NOW) — API 21+ 公开接口，单位 μA。
- * 电压：BatteryManager EXTRA_VOLTAGE（mV），双电芯机型若返回单电芯电压则需 ×2。
+ * 电压：sysfs voltage_now（电芯组总电压）；不可用时回退 BatteryManager EXTRA_VOLTAGE，
+ *       iQOO Neo10 为双电芯(2S)机型，该值为单电芯电压，需 ×2 得到总电压。
  */
 object BatteryReader {
 
@@ -203,15 +204,17 @@ object BatteryReader {
         if (uv != null) return uv / 1_000_000f
 
         // BatteryManager 兜底
+        // iQOO Neo10 为双电芯(2S)机型，EXTRA_VOLTAGE 返回的是单电芯电压，需 ×2 得到电芯组总电压
         val intent = batteryIntent() ?: return 0f
         val mv = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1)
         if (mv <= 0) {
             AppLogger.w(TAG, "BatteryManager 电压无效: $mv mV")
             return 0f
         }
-        val v = mv / 1000f
-        AppLogger.i(TAG, "BatteryManager 电压=${mv}mV (${v}V)，若为单电芯则总电压应×2")
-        return v
+        val singleCellV = mv / 1000f
+        val totalV = singleCellV * 2f
+        AppLogger.i(TAG, "BatteryManager 单电芯电压=${mv}mV (${singleCellV}V)，双电芯总电压=${totalV}V")
+        return totalV
     }
 
     /**

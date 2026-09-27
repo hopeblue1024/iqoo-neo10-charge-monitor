@@ -56,3 +56,6 @@ vcs.xml
 # OS files
 .DS_Store
 Thumbs.db
+
+# Trae IDE
+.trae/
