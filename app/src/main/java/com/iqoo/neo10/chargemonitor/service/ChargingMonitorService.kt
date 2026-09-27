@@ -37,9 +37,9 @@ class ChargingMonitorService : Service() {
     private var highTempNotified = false
     private var fullNotified = false
 
-    /** 连续检测到非充电状态的次数，达到阈值则自动停止 */
+    /** 连续检测到非充电状态的次数，达到阈值则自动停止。5s × 6 = 30s 确认，避免瞬时读数抖动误判 */
     private var nonChargingTicks = 0
-    private val NON_CHARGING_THRESHOLD = 2
+    private val NON_CHARGING_THRESHOLD = 6
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -185,7 +185,7 @@ class ChargingMonitorService : Service() {
 
     companion object {
         private const val TAG = "ChargingMonitorService"
-        private const val POLL_INTERVAL_MS = 60_000L
+        private const val POLL_INTERVAL_MS = 5_000L
         const val ACTION_STOP = "com.iqoo.neo10.chargemonitor.ACTION_STOP"
     }
 }
