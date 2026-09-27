@@ -18,22 +18,15 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * 充电监测前台服务。
- * 插上充电器时由 ChargingReceiver 启动，拔下时停止并结束本次记录。
- *
- * 职责：
- *  - 前台常驻通知展示实时充电信息
- *  - 每秒读取 /sys/class/power_supply 电池参数
- *  - 写入 Room 时序采样数据
- *  - 高温 / 充满告警推送
+ * 自己轮询检测充电状态，结束时同步写入 endTime 并自停，不依赖 Activity 的广播接收器。
  */
 class ChargingMonitorService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    /** 独立作用域，用于在 onDestroy 时完成记录收尾，不随 scope 取消 */
-    private val finalizeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var pollJob: Job? = null
 
     private val repository get() = (application as App).repository
@@ -43,6 +36,10 @@ class ChargingMonitorService : Service() {
 
     private var highTempNotified = false
     private var fullNotified = false
+
+    /** 连续检测到非充电状态的次数，达到阈值则自动停止 */
+    private var nonChargingTicks = 0
+    private val NON_CHARGING_THRESHOLD = 2
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -54,7 +51,7 @@ class ChargingMonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                stopSelf()
+                finalizeAndStop()
                 return START_NOT_STICKY
             }
         }
@@ -88,6 +85,7 @@ class ChargingMonitorService : Service() {
 
             highTempNotified = false
             fullNotified = false
+            nonChargingTicks = 0
 
             while (isActive) {
                 delay(POLL_INTERVAL_MS)
@@ -96,7 +94,22 @@ class ChargingMonitorService : Service() {
                 saveSample(s)
                 updateNotification(s)
                 checkAlerts(s)
+
+                // 检测充电是否结束：连续 2 次非充电状态则自停
+                if (s.status != "充电中" && s.status != "已充满") {
+                    nonChargingTicks++
+                    if (nonChargingTicks >= NON_CHARGING_THRESHOLD) {
+                        Log.i(TAG, "检测到充电已结束（连续 ${nonChargingTicks} 次非充电状态），停止服务")
+                        break
+                    }
+                } else {
+                    nonChargingTicks = 0
+                }
             }
+
+            // 同步写入 endTime + endCapacity，确保进程被杀前持久化
+            finalizeRecordSync()
+            stopSelf()
         }
     }
 
@@ -142,24 +155,36 @@ class ChargingMonitorService : Service() {
         }
     }
 
-    private fun finalizeRecord() {
-        finalizeScope.launch {
-            val record = repository.getRecordById(currentRecordId) ?: return@launch
-            val snap = BatteryReader.readSnapshot()
-            record.endTime = System.currentTimeMillis()
-            record.endCapacity = snap.capacity
-            repository.updateRecord(record)
+    /** 同步写入 endTime + endCapacity，调用方确保在 IO 线程或 suspend 环境中 */
+    private suspend fun finalizeRecordSync() {
+        val record = repository.getRecordById(currentRecordId) ?: return
+        val snap = BatteryReader.readSnapshot()
+        record.endTime = System.currentTimeMillis()
+        record.endCapacity = snap.capacity
+        repository.updateRecord(record)
+        Log.i(TAG, "finalizeRecord: endTime=${record.endTime}, endCapacity=${record.endCapacity}")
+    }
+
+    /** 外部请求停止时，走同步 finalize 路径 */
+    private fun finalizeAndStop() {
+        scope.launch {
+            finalizeRecordSync()
+            stopSelf()
         }
     }
 
     override fun onDestroy() {
-        finalizeRecord()
+        // 兜底：如果因异常被杀，用 runBlocking 抢时间写入 endTime
+        runBlocking {
+            try { finalizeRecordSync() } catch (_: Exception) {}
+        }
         pollJob?.cancel()
         scope.cancel()
         super.onDestroy()
     }
 
     companion object {
+        private const val TAG = "ChargingMonitorService"
         private const val POLL_INTERVAL_MS = 60_000L
         const val ACTION_STOP = "com.iqoo.neo10.chargemonitor.ACTION_STOP"
     }

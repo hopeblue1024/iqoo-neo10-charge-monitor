@@ -64,10 +64,21 @@ class HistoryDetailActivity : AppCompatActivity() {
         vm.record.observe(this) { r ->
             if (r == null) return@observe
             binding.tvTitle.text = FormatUtil.formatDateTime(r.startTime)
-            val end = r.endTime
-            val dur = if (end != null) (end - r.startTime) / 1000 else 0L
+            // 时长：优先用 endTime；endTime 为 null 时从 samples 推算（服务被杀或后台拔充电器导致未 finalize 的兜底）
+            val endTime = r.endTime
+            val durSec = when {
+                endTime != null -> (endTime - r.startTime) / 1000
+                vm.samples.value?.isNotEmpty() == true -> {
+                    val lastSample = vm.samples.value!!.last()
+                    // 用最后一条样本的 timestamp 或 elapsedSec 推算
+                    val fromTimestamp = (lastSample.timestamp - r.startTime) / 1000
+                    val fromElapsed = lastSample.elapsedSec
+                    maxOf(fromTimestamp, fromElapsed)
+                }
+                else -> 0L
+            }
             binding.tvInfo.text = buildString {
-                append("时长：${FormatUtil.formatDuration(dur)}\n")
+                append("时长：${FormatUtil.formatDuration(durSec)}\n")
                 append("电量：${r.startCapacity}% → ${r.endCapacity ?: r.startCapacity}%\n")
                 append("峰值功率：${FormatUtil.formatFloat1(r.maxPower)} W\n")
                 append("最高温度：${FormatUtil.formatFloat1(r.maxTemp)} °C")
