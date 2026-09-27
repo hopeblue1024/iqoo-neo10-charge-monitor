@@ -89,7 +89,11 @@ class MainActivity : AppCompatActivity() {
     private fun observeViewModel() {
         vm.snapshot.observe(this) { s ->
             (supportFragmentManager.findFragmentById(R.id.fragmentContainer) as? HomeFragment)?.updateData(s)
-            ensureMonitorIfCharging()
+            // 用 BatterySnapshot.status 判断充电状态，比 bm.isCharging 更可靠（同一数据源）
+            val isCharging = s.status == "充电中" || s.status == "已充满"
+            if (isCharging && vm.activeRecord.value == null) {
+                startMonitorService()
+            }
         }
         vm.activeRecord.observe(this) { r ->
             (supportFragmentManager.findFragmentById(R.id.fragmentContainer) as? HomeFragment)?.updateSession(r)
@@ -123,24 +127,12 @@ class MainActivity : AppCompatActivity() {
         }
         registerReceiver(powerReceiver, filter)
         vm.startTicking()
-        ensureMonitorIfCharging()
     }
 
     override fun onPause() {
         super.onPause()
         try { unregisterReceiver(powerReceiver) } catch (_: Exception) {}
         vm.stopTicking()
-    }
-
-    private fun isCharging(): Boolean {
-        val bm = getSystemService(BATTERY_SERVICE) as BatteryManager
-        return bm.isCharging
-    }
-
-    private fun ensureMonitorIfCharging() {
-        if (isCharging() && vm.activeRecord.value == null) {
-            startMonitorService()
-        }
     }
 
     private fun startMonitorService() {

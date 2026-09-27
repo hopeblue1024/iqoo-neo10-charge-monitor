@@ -17,6 +17,9 @@ class HomeFragment : Fragment() {
     private val binding get() = _binding!!
     private val vm: MainViewModel by activityViewModels()
 
+    /** 缓存最新快照，供 updateSession 判断充电状态用 */
+    private var lastSnapshot: BatterySnapshot? = null
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -32,6 +35,7 @@ class HomeFragment : Fragment() {
     }
 
     fun updateData(s: BatterySnapshot) {
+        lastSnapshot = s
         _binding?.let { b ->
             b.tvCapacity.text = "${s.capacity}%"
             b.tvVoltage.text = "${FormatUtil.formatFloat2(s.voltage)} V"
@@ -43,15 +47,18 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /**
+     * 更新主卡下方的充电状态提示。
+     * 统一使用缓存的 BatterySnapshot.status 判断是否在充电，
+     * 不再自行调用 BatteryManager.isCharging，避免两套数据源不一致。
+     */
     fun updateSession(r: ChargingRecord?) {
         _binding?.let { b ->
-            val charging = (activity as? androidx.appcompat.app.AppCompatActivity)?.let { act ->
-                val bm = act.getSystemService(android.content.Context.BATTERY_SERVICE) as android.os.BatteryManager
-                bm.isCharging
-            } ?: false
+            val snap = lastSnapshot
+            val isCharging = snap != null && (snap.status == "充电中" || snap.status == "已充满")
             b.tvSessionStatus.text = when {
                 r != null -> "正在记录充电中…"
-                charging -> "已连接充电器（准备记录）"
+                isCharging -> "已连接充电器（准备记录）"
                 else -> "未在充电"
             }
         }
