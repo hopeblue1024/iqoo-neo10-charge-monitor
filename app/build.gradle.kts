@@ -12,8 +12,8 @@ android {
         applicationId = "com.iqoo.neo10.chargemonitor"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "0.2.6"
+        versionCode = 13
+        versionName = "0.2.7"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -80,6 +80,9 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // WorkManager (后台充电检测后备)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     // Charts
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
