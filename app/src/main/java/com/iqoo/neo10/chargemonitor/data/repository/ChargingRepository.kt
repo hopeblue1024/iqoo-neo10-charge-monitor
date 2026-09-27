@@ -15,6 +15,8 @@ class ChargingRepository(private val dao: ChargingDao) {
 
     suspend fun getSamples(recordId: Long): List<BatterySample> = dao.getSamples(recordId)
 
+    suspend fun getLastSample(recordId: Long): BatterySample? = dao.getLastSample(recordId)
+
     fun getAllRecordsFlow(): Flow<List<ChargingRecord>> = dao.getAllRecordsFlow()
 
     suspend fun getAllRecordsOnce(): List<ChargingRecord> = dao.getAllRecordsOnce()

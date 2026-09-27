@@ -41,6 +41,9 @@ class ChargingMonitorService : Service() {
     private var nonChargingTicks = 0
     private val NON_CHARGING_THRESHOLD = 6
 
+    /** 复用未结束记录的最大间隔（毫秒）。超过此间隔说明中间断开过，应新建记录而非复用 */
+    private val REUSE_MAX_GAP_MS = 90_000L
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -67,20 +70,24 @@ class ChargingMonitorService : Service() {
         if (pollJob?.isActive == true) return
 
         pollJob = scope.launch {
-            // 复用未结束的充电记录（服务重启等场景），否则新建
+            // 处理未结束的残留记录：如果最后一条样本距今超过 REUSE_MAX_GAP_MS，
+            // 说明中间断开过（拔了充电器），应 finalize 旧记录后新建，保证每次插拔一条记录
             val existing = repository.getActiveRecord()
             if (existing != null) {
-                currentRecordId = existing.id
-                startTime = existing.startTime
+                val lastSample = repository.getLastSample(existing.id)
+                val gap = System.currentTimeMillis() - (lastSample?.timestamp ?: existing.startTime)
+                if (gap > REUSE_MAX_GAP_MS) {
+                    Log.i(TAG, "残留记录最后样本距今 ${gap}ms，已断开，finalize 后新建记录")
+                    finalizeExistingRecord(existing, lastSample)
+                    createNewRecord()
+                } else {
+                    // 间隔较短，服务刚重启，复用旧记录
+                    Log.i(TAG, "复用未结束记录（最后样本距今 ${gap}ms）")
+                    currentRecordId = existing.id
+                    startTime = existing.startTime
+                }
             } else {
-                val snap = BatteryReader.readSnapshot()
-                val record = ChargingRecord(
-                    startTime = System.currentTimeMillis(),
-                    startCapacity = snap.capacity
-                )
-                currentRecordId = repository.insertRecord(record)
-                startTime = record.startTime
-                saveSample(snap)
+                createNewRecord()
             }
 
             highTempNotified = false
@@ -155,22 +162,47 @@ class ChargingMonitorService : Service() {
         }
     }
 
+    /** 新建一条充电记录并保存首个样本 */
+    private suspend fun createNewRecord() {
+        val snap = BatteryReader.readSnapshot()
+        val record = ChargingRecord(
+            startTime = System.currentTimeMillis(),
+            startCapacity = snap.capacity
+        )
+        currentRecordId = repository.insertRecord(record)
+        startTime = record.startTime
+        saveSample(snap)
+        Log.i(TAG, "新建充电记录 id=$currentRecordId, capacity=${snap.capacity}%")
+    }
+
+    /** finalize 残留的未结束记录，endTime 取最后一条样本的时间戳（更准确） */
+    private suspend fun finalizeExistingRecord(record: ChargingRecord, lastSample: BatterySample?) {
+        record.endTime = lastSample?.timestamp ?: System.currentTimeMillis()
+        record.endCapacity = lastSample?.capacity ?: record.startCapacity
+        repository.updateRecord(record)
+        Log.i(TAG, "finalize 残留记录 id=${record.id}, endTime=${record.endTime}, endCap=${record.endCapacity}")
+    }
+
     /** 同步写入 endTime + endCapacity，调用方确保在 IO 线程或 suspend 环境中 */
     private suspend fun finalizeRecordSync() {
         val record = repository.getRecordById(currentRecordId) ?: return
+        // endTime 优先取最后一条样本的时间戳，比 System.currentTimeMillis() 更准确
+        val lastSample = repository.getLastSample(currentRecordId)
         val snap = BatteryReader.readSnapshot()
-        record.endTime = System.currentTimeMillis()
-        record.endCapacity = snap.capacity
+        record.endTime = lastSample?.timestamp ?: System.currentTimeMillis()
+        record.endCapacity = lastSample?.capacity ?: snap.capacity
         repository.updateRecord(record)
         Log.i(TAG, "finalizeRecord: endTime=${record.endTime}, endCapacity=${record.endCapacity}")
     }
 
-    /** 外部请求停止时，走同步 finalize 路径 */
+    /** 外部请求停止时，同步 finalize 后再 stopSelf，确保 endTime 一定写入 */
     private fun finalizeAndStop() {
-        scope.launch {
-            finalizeRecordSync()
-            stopSelf()
+        runBlocking {
+            try { finalizeRecordSync() } catch (e: Exception) {
+                Log.e(TAG, "finalizeAndStop 异常", e)
+            }
         }
+        stopSelf()
     }
 
     override fun onDestroy() {

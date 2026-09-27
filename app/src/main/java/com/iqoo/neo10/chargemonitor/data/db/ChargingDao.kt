@@ -30,6 +30,9 @@ interface ChargingDao {
     @Query("SELECT * FROM battery_samples WHERE recordId = :recordId ORDER BY id ASC")
     suspend fun getSamples(recordId: Long): List<BatterySample>
 
+    @Query("SELECT * FROM battery_samples WHERE recordId = :recordId ORDER BY id DESC LIMIT 1")
+    suspend fun getLastSample(recordId: Long): BatterySample?
+
     @Query("SELECT * FROM charging_records ORDER BY startTime DESC")
     fun getAllRecordsFlow(): Flow<List<ChargingRecord>>
 
