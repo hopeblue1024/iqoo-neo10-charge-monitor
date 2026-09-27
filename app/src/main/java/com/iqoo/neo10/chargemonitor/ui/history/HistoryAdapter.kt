@@ -24,11 +24,15 @@ class HistoryAdapter(
         val r = getItem(position)
         with(holder.b) {
             tvStartTime.text = FormatUtil.formatDateTime(r.startTime)
+            // endTime 为 null 表示充电仍在进行中（或服务被杀未 finalize）
             val end = r.endTime
-            val duration = if (end != null) (end - r.startTime) / 1000 else 0L
-            tvDuration.text = FormatUtil.formatDuration(duration)
-            val endCap = r.endCapacity ?: r.startCapacity
-            tvCapacity.text = "${r.startCapacity}% → ${endCap}%"
+            tvDuration.text = if (end != null) {
+                FormatUtil.formatDuration((end - r.startTime) / 1000)
+            } else {
+                "进行中"
+            }
+            val endCapText = r.endCapacity?.let { "${it}%" } ?: "进行中"
+            tvCapacity.text = "${r.startCapacity}% → ${endCapText}"
             tvMaxPower.text = "峰值 ${FormatUtil.formatFloat1(r.maxPower)} W"
             tvMaxTemp.text = "最高 ${FormatUtil.formatFloat1(r.maxTemp)} °C"
             root.setOnClickListener { onClick(r) }
