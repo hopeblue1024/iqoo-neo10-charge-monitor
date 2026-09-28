@@ -8,10 +8,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.os.BatteryManager
 import android.util.Log
-import android.view.Menu
-import android.view.MenuItem
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -41,14 +38,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // 应用保存的主题模式（在 super.onCreate 之前）
         applyThemeMode()
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        setSupportActionBar(binding.toolbar)
-        binding.toolbar.subtitle = "iQOO Neo10 · 双电芯监测"
 
         setupBottomNav(savedInstanceState)
         requestNotificationPermission()
@@ -78,6 +71,12 @@ class MainActivity : AppCompatActivity() {
                     }
                     true
                 }
+                R.id.nav_settings -> {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    // 保持之前的选中状态，从设置页返回时不会跳回主页
+                    binding.bottomNav.post { binding.bottomNav.selectedItemId = R.id.nav_home }
+                    true
+                }
                 else -> false
             }
         }
@@ -89,7 +88,6 @@ class MainActivity : AppCompatActivity() {
     private fun observeViewModel() {
         vm.snapshot.observe(this) { s ->
             (supportFragmentManager.findFragmentById(R.id.fragmentContainer) as? HomeFragment)?.updateData(s)
-            // 用 BatterySnapshot.status 判断充电状态，比 bm.isCharging 更可靠（同一数据源）
             val isCharging = s.status == "充电中" || s.status == "已充满"
             if (isCharging && vm.activeRecord.value == null) {
                 startMonitorService()
@@ -97,25 +95,6 @@ class MainActivity : AppCompatActivity() {
         }
         vm.activeRecord.observe(this) { r ->
             (supportFragmentManager.findFragmentById(R.id.fragmentContainer) as? HomeFragment)?.updateSession(r)
-        }
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_chart -> {
-                startActivity(Intent(this, ChartActivity::class.java))
-                true
-            }
-            R.id.action_settings -> {
-                startActivity(Intent(this, SettingsActivity::class.java))
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
         }
     }
 

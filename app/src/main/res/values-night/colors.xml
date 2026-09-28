@@ -1,19 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 深色模式 -->
-    <color name="bg_main">#0F0F12</color>
-    <color name="bg_card">#1C1C1E</color>
-    <color name="bg_card_elevated">#2C2C2E</color>
-    <color name="divider">#38383A</color>
-    <color name="text_primary">#F5F5F7</color>
+    <color name="bg_main">#121214</color>
+    <color name="bg_card">#1C1C1F</color>
+    <color name="bg_card_elevated">#262629</color>
+    <color name="divider">#2E2E31</color>
+    <color name="text_primary">#F2F2F7</color>
     <color name="text_secondary">#98989D</color>
-    <color name="accent">#30D158</color>
+    <color name="accent">#66BB9E</color>
     <color name="power">#FF9F0A</color>
-    <color name="temp_high">#FF453A</color>
-    <color name="voltage">#0A84FF</color>
-    <color name="nav_bg">#0F0F12</color>
-    <color name="nav_item_active">#30D158</color>
-    <color name="nav_item_inactive">#98989D</color>
-    <color name="toolbar_bg">#0F0F12</color>
+    <color name="temp_high">#FF6B6B</color>
+    <color name="voltage">#7BA7FF</color>
+    <color name="nav_bg">#121214</color>
+    <color name="nav_item_active">#66BB9E</color>
+    <color name="nav_item_inactive">#707075</color>
+    <color name="nav_active_bg">#1E3A30</color>
+    <color name="toolbar_bg">#121214</color>
     <color name="switch_track">#3A3A3C</color>
+
+    <!-- 深色模式下的柔和图标背景 -->
+    <color name="icon_bg_green">#1A2E25</color>
+    <color name="icon_bg_orange">#2E221A</color>
+    <color name="icon_bg_blue">#1A2430</color>
+    <color name="icon_bg_pink">#2E1A22</color>
+    <color name="icon_bg_yellow">#2E2B1A</color>
+    <color name="icon_bg_gray">#262629</color>
+
+    <!-- 分区竖线颜色 -->
+    <color name="section_line">#66BB9E</color>
 </resources>

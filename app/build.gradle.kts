@@ -12,8 +12,8 @@ android {
         applicationId = "com.iqoo.neo10.chargemonitor"
         minSdk = 26
         targetSdk = 34
-        versionCode = 14
-        versionName = "0.2.8"
+        versionCode = 15
+        versionName = "0.3.0"
         vectorDrawables { useSupportLibrary = true }
     }
 

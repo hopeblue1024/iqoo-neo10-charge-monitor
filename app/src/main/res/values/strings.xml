@@ -16,6 +16,7 @@
     <!-- 底部导航 -->
     <string name="nav_home">主页</string>
     <string name="nav_history">历史</string>
+    <string name="nav_settings">设置</string>
 
     <!-- 菜单 -->
     <string name="menu_settings">设置</string>
